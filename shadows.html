@@ -19,7 +19,7 @@ A/D: Increase/decrease scene rotation</p>
 
 <!-- GLSL Shaders -->
 <script id="vshader1" type="x-shader/x-vertex">
-// Vertex Shader #1
+// Vertex Shader #1w
 
 uniform mat4 projectionMatrix;
 uniform mat4 modelViewMatrix;
@@ -54,8 +54,8 @@ varying vec3 normal_var;
 
 void main()
 {
-    // light direction - kind of up to the left
-    vec3 light_dir = normalize(vec3(-1., -1., 1.));
+    // light direction - straight down
+    vec3 light_dir = normalize(vec3(0., 1., 0.));
     
     // calculate lit color
     vec4 final_color = paintcolor_var;
@@ -102,20 +102,155 @@ function main(canvasid) {
     document.addEventListener('keypress', keyboard, false);
 
     // object init
-    scene_rotate_ang = 90.;
-    scene_rotate_spd = 15;
+    scene_rotate_ang = 0.;
+    scene_rotate_spd = 0.;
     view_ang = 25.;
 
     // GL States
     gl.enable(gl.DEPTH_TEST);
 }
 
+// drawCircle
+// draws a circle with given number of slices
+function drawCircle(ctx, subdivs, r, g, b, a) {
+    pushMvMatrix(ctx);
+    primBegin(ctx, ctx.TRIANGLE_FAN);
+    primColor(ctx, r, g, b, a);
+    primNormal(ctx, 0., 0., -1.);
+    primVertex(ctx, 0., 0.);
+    for (var ii = 0; ii <= subdivs; ++ii) {
+        primVertex(ctx,
+            Math.sin(2.*Math.PI*ii/subdivs),
+            Math.cos(2.*Math.PI*ii/subdivs));
+    }
+    primEnd(ctx);
+    popMvMatrix(ctx);
+}
+
+// drawClosedCylinder
+// draws a cylinder with closed ends
+function drawClosedCylinder(ctx, subdivs, r, g, b, a) {
+    pushMvMatrix(ctx);
+    mat4.rotate(ctx.mvMatrix, ctx.mvMatrix, Math.PI/2., [0., 0., 1.]);
+    // draw the open cylinder
+    drawCylinder(ctx, subdivs, r, g, b, a);
+    
+    // draw the top circle
+    pushMvMatrix(ctx);
+    mat4.rotate(ctx.mvMatrix, ctx.mvMatrix, -Math.PI/2., [0., 1., 0.]);
+    mat4.translate(ctx.mvMatrix, ctx.mvMatrix, [0., 0., -1.]);
+    drawCircle(ctx, 4*subdivs, r, g, b, a);
+    popMvMatrix(ctx);
+    
+    // draw the bottom circle
+    pushMvMatrix(ctx);
+    mat4.rotate(ctx.mvMatrix, ctx.mvMatrix, Math.PI/2., [0., 1., 0.]);
+    mat4.translate(ctx.mvMatrix, ctx.mvMatrix, [0., 0., -1.]);
+    drawCircle(ctx, 4*subdivs, r, g, b, a);
+    popMvMatrix(ctx);
+    popMvMatrix(ctx);
+}
+
+// drawRing
+// draws an annulus, with radii 1 and given
+function drawRing(ctx, subdivs, rad, r, g, b, a) {
+    pushMvMatrix(ctx);
+    mat4.rotate(ctx.mvMatrix, ctx.mvMatrix, Math.PI/2., [1., 0., 0.]);
+    primBegin(ctx, ctx.TRIANGLE_STRIP);
+    primColor(ctx, r, g, b, a);
+    primNormal(ctx, 0., 0., -1.);
+    for (var ii = 0; ii <= 4*subdivs; ++ii) {
+        primVertex(ctx,
+            Math.sin(0.5*Math.PI*ii/subdivs),
+            Math.cos(0.5*Math.PI*ii/subdivs));
+        primVertex(ctx,
+            Math.sin(0.5*Math.PI*ii/subdivs)*rad,
+            Math.cos(0.5*Math.PI*ii/subdivs)*rad);
+    }
+    primEnd(ctx);
+    popMvMatrix(ctx);
+}
+
+// drawPipe
+// draws a closed annular prism, with radii 1 and given
+function drawPipe(ctx, subdivs, rad, r, g, b, a) {
+    pushMvMatrix(ctx);
+    mat4.rotate(ctx.mvMatrix, ctx.mvMatrix, Math.PI/2., [0., 0., 1.]);
+    drawCylinder(ctx, subdivs, r, g, b, a);
+    popMvMatrix(ctx);
+    
+    pushMvMatrix(ctx);
+    mat4.rotate(ctx.mvMatrix, ctx.mvMatrix, Math.PI/2., [0., 0., 1.]);
+    mat4.scale(ctx.mvMatrix, ctx.mvMatrix, [1., rad, rad]);
+    drawCylinder(ctx, subdivs, r, g, b, a);
+    popMvMatrix(ctx);
+    
+    pushMvMatrix(ctx);
+    mat4.translate(gl.mvMatrix, gl.mvMatrix, [0., 1., 0.]);
+    drawRing(ctx, subdivs, rad, r, g, b, a);
+    popMvMatrix(ctx);
+    
+    pushMvMatrix(ctx);
+    mat4.rotate(ctx.mvMatrix, ctx.mvMatrix, Math.PI, [-1., 0., 0.]);
+    mat4.translate(gl.mvMatrix, gl.mvMatrix, [0., 1., 0.]);
+    drawRing(ctx, subdivs, rad, r, g, b, a);
+    popMvMatrix(ctx);
+}
+
+// drawGround function
+// draws the ground and road
+function drawGround() {
+    // draws the grass field
+    pushMvMatrix(gl);
+    mat4.scale(gl.mvMatrix, gl.mvMatrix, [8., 1., 8.]);
+    mat4.rotate(gl.mvMatrix, gl.mvMatrix, Math.PI/2., [1., 0., 0.]);
+    drawCircle(gl, 80, 0., 0.5, 0., 1.0);
+    popMvMatrix(gl);
+    
+    // draws the roadway
+    pushMvMatrix(gl);
+    mat4.translate(gl.mvMatrix, gl.mvMatrix, [0., 0.001, 0.]);
+    mat4.scale(gl.mvMatrix, gl.mvMatrix, [6., 1., 6.]);
+    drawRing(gl, 40, 0.5, 0.1, 0.1, 0.1, 1.0);
+    popMvMatrix(gl);
+    
+    // draws the outer road line
+    pushMvMatrix(gl);
+    mat4.translate(gl.mvMatrix, gl.mvMatrix, [0., 0.002, 0.]);
+    mat4.scale(gl.mvMatrix, gl.mvMatrix, [5.8, 1., 5.8]);
+    drawRing(gl, 40, 0.98, 0.8, 0.8, 0.8, 1.0);
+    popMvMatrix(gl);
+    
+    // draws the inner road line
+    pushMvMatrix(gl);
+    mat4.translate(gl.mvMatrix, gl.mvMatrix, [0., 0.002, 0.]);
+    mat4.scale(gl.mvMatrix, gl.mvMatrix, [3.2, 1., 3.2]);
+    drawRing(gl, 40, 0.98, 0.8, 0.8, 0., 1.0);
+    popMvMatrix(gl);
+}
+
+// drawFountain function
+// draws the fountain in the center of the roundabout
+function drawFountain() {
+    pushMvMatrix(gl);
+    mat4.scale(gl.mvMatrix, gl.mvMatrix, [0.8, 0.1, 0.8]);
+    mat4.translate(gl.mvMatrix, gl.mvMatrix, [0., 1., 0.]);
+    drawClosedCylinder(gl, 40, 0.8, 0.8, 0.8, 1.0);
+    mat4.scale(gl.mvMatrix, gl.mvMatrix, [1.2, 1., 1.2]);
+    mat4.translate(gl.mvMatrix, gl.mvMatrix, [0., 2., 0.]);
+    drawPipe(gl, 40, 0.6, 0.8, 0.8, 0.8, 1.0);
+    mat4.rotate(gl.mvMatrix, gl.mvMatrix, Math.PI/2., [1., 0., 0.]);
+    mat4.scale(gl.mvMatrix, gl.mvMatrix, [0.7, 0.7, 1.0]);
+    drawCircle(gl, 40, 0.4, 0.4, 1.0, 1.0);
+    popMvMatrix(gl);
+}
+
 // drawScene function
 // draws everything
 function drawScene() {
     pushMvMatrix(gl);
-    // TODO: DRAW ALL THE THINGS
-    drawCube(gl, 2., 0.4, 0.4, 0.4, 1.0);
+    drawGround();
+    drawFountain();
     popMvMatrix(gl);
 }
 
@@ -129,7 +264,7 @@ function display() {
 
     // Camera transformation
     mat4.identity(gl.mvMatrix);
-    mat4.translate(gl.mvMatrix, gl.mvMatrix, [0., 0., -4.]);
+    mat4.translate(gl.mvMatrix, gl.mvMatrix, [0., 0., -8.]);
     mat4.rotate(gl.mvMatrix, gl.mvMatrix, view_ang * Math.PI/180., [1., 0., 0.]);
     mat4.rotate(gl.mvMatrix, gl.mvMatrix, scene_rotate_ang * Math.PI/180., [0., -1., 0.]);
 
@@ -169,12 +304,14 @@ function keyboard(event) {
     // move camera up and down
     case 'W':
     case 'w':
-        if (view_ang > 1) view_ang -= 1;
+        if (view_ang > 1)
+            view_ang -= 1;
         postRedisplay();
         break;
     case 'S':
     case 's':
-        if (view_ang < 90) view_ang += 1;
+        if (view_ang < 90)
+            view_ang += 1;
         postRedisplay();
         break;
 
