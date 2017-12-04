@@ -127,6 +127,23 @@ function drawCircle(ctx, subdivs, r, g, b, a) {
     popMvMatrix(ctx);
 }
 
+//drawCone
+//draws an open cone
+function drawCone(ctx, subdivs, r, g, b, a) {
+	pushMvMatrix(ctx);
+	primBegin(ctx, ctx.TRIANGLE_FAN);
+	primColor(ctx, r, g, b, a);
+	primNormal(ctx, 0., 0., -1.);
+	primVertex(ctx, 0., 1., 0.);
+	var stepSize = 2.*Math.PI/subdivs;
+	for(var i = 0; i <= subdivs; ++i) {
+		primVertex(ctx,
+			Math.cos(i*stepSize), 0., Math.sin(i*stepSize));
+	}
+	primEnd(ctx);
+	popMvMatrix(ctx);
+}
+
 // drawClosedCylinder
 // draws a cylinder with closed ends
 function drawClosedCylinder(ctx, subdivs, r, g, b, a) {
@@ -270,7 +287,6 @@ function display() {
 
     // draw all the things
     drawScene();
-
     gl.flush();
 }
 
