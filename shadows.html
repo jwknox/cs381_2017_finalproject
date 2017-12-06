@@ -2,7 +2,7 @@
 <!-- shadows.html
 Bryce Melegari, Joe Knox
 Created: 2017-11-20
-Updated: 2017-11-20
+Updated: 2017-12-05
 HTML file for CS 381 Final Project
 Shaders and some setup code borrowed from Glenn G. Chappell -->
 <html>
@@ -19,7 +19,7 @@ A/D: Increase/decrease scene rotation</p>
 
 <!-- GLSL Shaders -->
 <script id="vshader1" type="x-shader/x-vertex">
-// Vertex Shader #1w
+// Vertex Shader #1
 
 uniform mat4 projectionMatrix;
 uniform mat4 modelViewMatrix;
@@ -30,16 +30,21 @@ attribute vec4 color_attr;
 attribute vec3 normal_attr;
 
 varying vec4 paintcolor_var;
-varying vec3 normal_var;
+varying vec3 surfpt_var;
+varying vec3 surfnorm_var;
 
 void main()
 {
-    // Compute projected vertex position
-    gl_Position = projectionMatrix * modelViewMatrix * vertex_attr;
+    // Compute vertex position
+    vec4 surfpt4 = modelViewMatrix * vertex_attr;
+    surfpt_var = surfpt4.xyz / surfpt4.w;
+    gl_Position = projectionMatrix * surfpt4;
 
-    // Send paint color and normal to fragment shader
+    // Compute normal
+    surfnorm_var = normalize(normalMatrix * normal_attr);
+
+    // Send paint color to fragment shader
     paintcolor_var = color_attr;
-    normal_var = normalize(normalMatrix * normal_attr);
 }
 </script>
 <script id="fshader1" type="x-shader/x-fragment">
@@ -50,19 +55,75 @@ precision mediump float;
 #endif
 
 varying vec4 paintcolor_var;
-varying vec3 normal_var;
+varying vec3 surfpt_var;
+varying vec3 surfnorm_var;
 
+// bpLight
+// Compute color based on Blinn-Phong Illumination Model.
+vec4 bpLight(
+    vec4 lightcolor,
+    vec4 lightpos4,  // Homogeneous form
+    vec4 paintcolor,
+    vec3 surfpt,
+    vec3 surfnorm)
+{
+    // ***** Scalar Lighting Parameters *****
+
+    float ambientfrac = 0.2;
+        // Ambient light color, as fraction of light color
+    float shininess = 50.;
+        // PHONG Model shininess exponent
+        // (Blinn-Phong needs 4 times larger)
+
+    // ***** Direction of Light Source (cam coords) *****
+    vec3 lightdir;
+    if (lightpos4.w == 0.)
+        lightdir = normalize(lightpos4.xyz);
+    else
+        lightdir = normalize(lightpos4.xyz/lightpos4.w - surfpt);
+
+    // ***** Compute the Three Parts of Blinn-Phong Model *****
+
+    // Ambient
+    vec4 ambientcolor = ambientfrac * lightcolor * paintcolor;
+
+    // Diffuse
+    // Lambert cosine (or 0 if this is negative)
+    float lambertcos = max(0., dot(surfnorm, lightdir));
+    vec4 diffusecolor = lambertcos * lightcolor * paintcolor;
+
+    // Specular
+    vec3 viewdir = normalize(-surfpt);
+    vec3 halfway = normalize(viewdir + lightdir);
+    float specularcoeff = pow(max(0., dot(surfnorm, halfway)),
+                              4.*shininess);
+        // Blinn-Phong needs shininiess 4 * [Phong shininess]
+    vec4 specularcolor = specularcoeff * lightcolor;
+
+    // ***** Combine the Three Parts *****
+
+    return clamp(ambientcolor + diffusecolor + specularcolor,
+                 0., 1.);
+}
 void main()
 {
-    // light direction - straight down
-    vec3 light_dir = normalize(vec3(0., 1., 0.));
-    
-    // calculate lit color
-    vec4 final_color = paintcolor_var;
-    float view_cos = dot(normal_var, light_dir);
-    if (view_cos > 0.) final_color += view_cos/3.; // wrong, but works
-    clamp(final_color, 0., 1.);
-    gl_FragColor = final_color;
+    // Surface normal
+    vec3 surfnorm = normalize(surfnorm_var);
+
+    // Light-source color & position/direction
+    vec4 lightcolor = vec4(1., 1., 1., 1.);  // White
+    vec4 lightpos4 =  vec4(0., 0., 0., 1.);
+
+    // Apply Blinn-Phong Illumination Model
+    vec4 litcolor = bpLight(
+        lightcolor,
+        lightpos4,
+        paintcolor_var,
+        surfpt_var,
+        surfnorm);
+
+    // Send color to framebuffer
+    gl_FragColor = vec4(litcolor.rgb, 1.0);
 }
 </script>
 <!-- END GLSL Shaders -->
