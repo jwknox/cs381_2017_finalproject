@@ -71,7 +71,7 @@ vec4 bpLight(
 
     float ambientfrac = 0.2;
         // Ambient light color, as fraction of light color
-    float shininess = 50.;
+    float shininess = 200.;
         // PHONG Model shininess exponent
         // (Blinn-Phong needs 4 times larger)
 
@@ -188,18 +188,35 @@ function drawCircle(ctx, subdivs, r, g, b, a) {
     popMvMatrix(ctx);
 }
 
-//drawCone
-//draws an open cone
+// drawCone
+// draws an open cone
 function drawCone(ctx, subdivs, r, g, b, a) {
 	pushMvMatrix(ctx);
-	primBegin(ctx, ctx.TRIANGLE_FAN);
-	primColor(ctx, r, g, b, a);
-	primNormal(ctx, 0., 0., -1.);
-	primVertex(ctx, 0., 1., 0.);
+    mat4.rotate(ctx.mvMatrix, ctx.mvMatrix, Math.PI/2., [0., 0., 1.]);
 	var stepSize = 2.*Math.PI/subdivs;
-	for(var i = 0; i <= subdivs; ++i) {
-		primVertex(ctx,
-			Math.cos(i*stepSize), 0., Math.sin(i*stepSize));
+	for(var ii = 0; ii < subdivs; ++ii) {
+        primBegin(ctx, gl.TRIANGLES);
+        primColor(ctx, r, g, b, a);
+        var point1 = vec3.fromValues(1., 0., 0.);
+        var point2 = vec3.fromValues(0.,
+            Math.sin(ii*2.*Math.PI/subdivs),
+            Math.cos(ii*2.*Math.PI/subdivs));
+        var point3 = vec3.fromValues(0.,
+            Math.sin((ii+1)*2.*Math.PI/subdivs),
+            Math.cos((ii+1)*2.*Math.PI/subdivs));
+        // calculate facet normal
+        var side1 = vec3.create();
+        vec3.subtract(side1, point1, point2);
+        var side2 = vec3.create();
+        vec3.subtract(side2, point1, point3);
+        var normal = vec3.create();
+        vec3.cross(normal, side2, side1);
+        vec3.normalize(normal, normal);
+        primNormal(gl, normal[0], normal[1], normal[2]);
+        primVertex(gl, point1[0], point1[1], point1[2]);
+        primVertex(gl, point2[0], point2[1], point2[2]);
+        primVertex(gl, point3[0], point3[1], point3[2]);
+        primEnd(gl);
 	}
 	primEnd(ctx);
 	popMvMatrix(ctx);
@@ -327,8 +344,10 @@ function drawFountain() {
 // draws everything
 function drawScene() {
     pushMvMatrix(gl);
-    drawGround();
-    drawFountain();
+    //drawGround();
+    //drawFountain();
+    //drawPipe(gl, 1, 1.5, 0.8, 0.8, 0.8, 1.0);
+    drawCone(gl, 100, 0.8, 0.8, 0.8, 1.0);
     popMvMatrix(gl);
 }
 
@@ -381,13 +400,13 @@ function keyboard(event) {
     // move camera up and down
     case 'W':
     case 'w':
-        if (view_ang > 1)
+        //if (view_ang > 1)
             view_ang -= 1;
         postRedisplay();
         break;
     case 'S':
     case 's':
-        if (view_ang < 90)
+        //if (view_ang < 90)
             view_ang += 1;
         postRedisplay();
         break;
