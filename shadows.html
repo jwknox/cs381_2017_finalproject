@@ -163,7 +163,7 @@ function main(canvasid) {
     document.addEventListener('keypress', keyboard, false);
 
     // object init
-    scene_rotate_ang = 0.;
+    scene_rotate_ang = -50.;
     scene_rotate_spd = 0.;
     view_ang = 25.;
 
@@ -340,14 +340,99 @@ function drawFountain() {
     popMvMatrix(gl);
 }
 
+// drawCar function
+function drawCar(r, g, b) {
+    // main body
+    pushMvMatrix(gl);
+    mat4.translate(gl.mvMatrix, gl.mvMatrix, [0., 0.43, 0.]);
+    mat4.scale(gl.mvMatrix, gl.mvMatrix, [1., 0.48, 2.4]);
+    drawCube(gl, 1, r, g, b, 1.);
+    popMvMatrix(gl);
+
+    // cab
+    pushMvMatrix(gl);
+    mat4.translate(gl.mvMatrix, gl.mvMatrix, [0., 0.845, 0.2]);
+    mat4.scale(gl.mvMatrix, gl.mvMatrix, [1., 0.35, 0.8]);
+    drawCube(gl, 1, r, g, b, 1.);
+    popMvMatrix(gl);
+    
+    // front window
+    pushMvMatrix(gl);
+    mat4.translate(gl.mvMatrix, gl.mvMatrix, [0., 0.693, -0.415]);
+    mat4.rotate(gl.mvMatrix, gl.mvMatrix, -Math.PI/6., [1., 0., 0.]);
+    mat4.scale(gl.mvMatrix, gl.mvMatrix, [0.999, 0.35, 0.7]);
+    drawCube(gl, 1, 0.7, 0.7, 0.7, 1.);
+    popMvMatrix(gl);
+    
+    // back window
+    pushMvMatrix(gl);
+    mat4.translate(gl.mvMatrix, gl.mvMatrix, [0., 0.648, 0.725]);
+    mat4.rotate(gl.mvMatrix, gl.mvMatrix, Math.PI/4., [1., 0., 0.]);
+    mat4.scale(gl.mvMatrix, gl.mvMatrix, [0.999, 0.35, 0.7]);
+    drawCube(gl, 1, 0.7, 0.7, 0.7, 1.);
+    popMvMatrix(gl);
+    
+    // front left tire
+    pushMvMatrix(gl);
+    mat4.translate(gl.mvMatrix, gl.mvMatrix, [-0.42, 0.24, -0.73]);
+    mat4.rotate(gl.mvMatrix, gl.mvMatrix, Math.PI/2., [0., 0., 1.]);
+    mat4.scale(gl.mvMatrix, gl.mvMatrix, [0.24, 0.12, 0.24]);
+    mat4.rotate(gl.mvMatrix, gl.mvMatrix, Math.PI/4., [0., 1., 0.]);
+    drawClosedCylinder(gl, 20, 0.2, 0.2, 0.2, 1.);
+    popMvMatrix(gl);
+    
+    // front right tire
+    pushMvMatrix(gl);
+    mat4.translate(gl.mvMatrix, gl.mvMatrix, [0.42, 0.24, -0.73]);
+    mat4.rotate(gl.mvMatrix, gl.mvMatrix, Math.PI/2., [0., 0., 1.]);
+    mat4.scale(gl.mvMatrix, gl.mvMatrix, [0.24, 0.12, 0.24]);
+    drawClosedCylinder(gl, 20, 0.2, 0.2, 0.2, 1.);
+    popMvMatrix(gl);
+    
+    // back left tire
+    pushMvMatrix(gl);
+    mat4.translate(gl.mvMatrix, gl.mvMatrix, [-0.42, 0.24, 0.73]);
+    mat4.rotate(gl.mvMatrix, gl.mvMatrix, Math.PI/2., [0., 0., 1.]);
+    mat4.scale(gl.mvMatrix, gl.mvMatrix, [0.24, 0.12, 0.24]);
+    drawClosedCylinder(gl, 20, 0.2, 0.2, 0.2, 1.);
+    popMvMatrix(gl);
+    
+    // back right tire
+    pushMvMatrix(gl);
+    mat4.translate(gl.mvMatrix, gl.mvMatrix, [0.42, 0.24, 0.73]);
+    mat4.rotate(gl.mvMatrix, gl.mvMatrix, Math.PI/2., [0., 0., 1.]);
+    mat4.scale(gl.mvMatrix, gl.mvMatrix, [0.24, 0.12, 0.24]);
+    drawClosedCylinder(gl, 20, 0.2, 0.2, 0.2, 1.);
+    popMvMatrix(gl);
+}
+
 // drawScene function
 // draws everything
 function drawScene() {
     pushMvMatrix(gl);
-    //drawGround();
+    mat4.translate(gl.mvMatrix, gl.mvMatrix, [4, 0., 0.]);
+    drawCar(0.6, 0.2, 0.2);
+    popMvMatrix(gl);
+    pushMvMatrix(gl);
+    mat4.rotate(gl.mvMatrix, gl.mvMatrix, Math.PI/2., [0., 1., 0.]);
+    mat4.translate(gl.mvMatrix, gl.mvMatrix, [4, 0., 0.]);
+    drawCar(0.2, 0.6, 0.2);
+    popMvMatrix(gl);
+    pushMvMatrix(gl);
+    mat4.rotate(gl.mvMatrix, gl.mvMatrix, Math.PI, [0., 1., 0.]);
+    mat4.translate(gl.mvMatrix, gl.mvMatrix, [4, 0., 0.]);
+    drawCar(0.2, 0.2, 0.6);
+    popMvMatrix(gl);
+    pushMvMatrix(gl);
+    mat4.rotate(gl.mvMatrix, gl.mvMatrix, 3.*Math.PI/2., [0., 1., 0.]);
+    mat4.translate(gl.mvMatrix, gl.mvMatrix, [4, 0., 0.]);
+    drawCar(0.6, 0.6, 0.2);
+    popMvMatrix(gl);
+    pushMvMatrix(gl);
+    drawGround();
     //drawFountain();
     //drawPipe(gl, 1, 1.5, 0.8, 0.8, 0.8, 1.0);
-    drawCone(gl, 100, 0.8, 0.8, 0.8, 1.0);
+    //drawCone(gl, 100, 0.8, 0.8, 0.8, 1.0);
     popMvMatrix(gl);
 }
 
