@@ -24,6 +24,9 @@ A/D: Increase/decrease scene rotation</p>
 uniform mat4 projectionMatrix;
 uniform mat4 modelViewMatrix;
 uniform mat3 normalMatrix;
+uniform vec4 lightpos4_u;
+uniform mat4 lightPOVMatrix;
+uniform mat4 lightShiftMatrix;
 
 attribute vec4 vertex_attr;
 attribute vec4 color_attr;
@@ -32,6 +35,8 @@ attribute vec3 normal_attr;
 varying vec4 paintcolor_var;
 varying vec3 surfpt_var;
 varying vec3 surfnorm_var;
+varying vec4 lightpos4_var;
+varying vec4 shadowCoord;
 
 void main()
 {
@@ -40,11 +45,16 @@ void main()
     surfpt_var = surfpt4.xyz / surfpt4.w;
     gl_Position = projectionMatrix * surfpt4;
 
+    //send position of vertex in "light space" (as seen by the light)
+    //-in a domain usable for texture sampling
+    shadowCoord = lightShiftMatrix * lightPOVMatrix * surfpt4;
+
     // Compute normal
     surfnorm_var = normalize(normalMatrix * normal_attr);
 
     // Send paint color to fragment shader
     paintcolor_var = color_attr;
+    lightpos4_var = lightpos4_u;
 }
 </script>
 <script id="fshader1" type="x-shader/x-fragment">
@@ -57,6 +67,10 @@ precision mediump float;
 varying vec4 paintcolor_var;
 varying vec3 surfpt_var;
 varying vec3 surfnorm_var;
+varying vec4 lightpos4_var;
+varying vec4 shadowCoord;
+
+uniform sampler2D shadowMap;
 
 // bpLight
 // Compute color based on Blinn-Phong Illumination Model.
@@ -112,7 +126,7 @@ void main()
 
     // Light-source color & position/direction
     vec4 lightcolor = vec4(1., 1., 1., 1.);  // White
-    vec4 lightpos4 =  vec4(0., 0., 0., 1.);
+    vec4 lightpos4 =  lightpos4_var;
 
     // Apply Blinn-Phong Illumination Model
     vec4 litcolor = bpLight(
@@ -122,10 +136,44 @@ void main()
         surfpt_var,
         surfnorm);
 
+    float visibility = 1.0;
+
+    //test if current frag is nearer or further to/from the light source
+
+    float currentFragDistFromLight = texture2D(shadowMap, shadowCoord.xy ).r;
+
+    if ( currentFragDistFromLight < shadowCoord.z) {
+    	visibility = 0.5;
+    }
+
     // Send color to framebuffer
-    gl_FragColor = vec4(litcolor.rgb, 1.0);
+    gl_FragColor = visibility * vec4(litcolor.rgb, 1.0);
 }
 </script>
+
+<!--vertex and fragment shaders for rendering the shadowmap-->
+<script id="vshader2" type="x-shader/x-vertex">
+
+	uniform mat4 mvpMatrix;
+
+	attribute vec4 vertex_attr;
+
+	void main() {
+		gl_Position = mvpMatrix * vertex_attr;
+	}
+</script>
+
+<script id="fshader2" type="x-shader/x-fragment">
+	#ifdef GL_ES
+	precision mediump float;
+	#endif
+
+	void main() {
+
+
+	}
+</script>
+
 <!-- END GLSL Shaders -->
 
 <!-- JavaScript Application -->
@@ -137,11 +185,69 @@ var gl;                 // WebGL rendering context
 
 // Shaders
 var shaderprog1;        // Shader program object
+var shaderprog2;		// Shader program used for shadowmaps
 
 // object
 var scene_rotate_ang;
 var scene_rotate_spd;
 var view_ang;
+var lightPos; 			//position of 'sun'
+
+var lightModelViewProjectionMatrix; //MVP matrix from the perspective of the light source
+
+//in order for the shader to interpret the shadowmap, we have to sample the texture
+//for each fragment. However, fragment coords are in [-1,1] while texture sampling
+//is done in [0, 1]. We'll create this matrix to multiply by the MVP matrix to 
+//make the comparison easier
+var lightShiftMatrix = mat4.fromValues(
+	0.5, 0.0, 0.0, 0.0,
+	0.0, 0.5, 0.0, 0.0,
+	0.0, 0.0, 0.5, 0.0,
+	0.5, 0.5, 0.5, 1.0
+	);
+//this matrix divides coordinates by 2 and translates them appropriately.
+
+function makeShadowmapBuffers() {
+	gl.useProgram(shaderprog2);
+	var fbo = gl.createFramebuffer();
+	gl.bindFramebuffer(gl.FRAMEBUFFER, fbo);
+
+	//we will use a texture to store the depth info for the shadowmap
+	var tex = gl.createTexture();
+	gl.bindTexture(gl.TEXTURE_2D, tex);
+
+	gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.NEAREST);
+	gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.NEAREST);
+	gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE);
+	gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
+	gl.texImage2D(gl.TEXTURE_2D, 0, gl.DEPTH_COMPONENT, 1024, 1024,
+		0, gl.DEPTH_COMPONENT, gl.UNSIGNED_INT, null);
+
+	var rbo = gl.createRenderbuffer();
+	gl.bindRenderbuffer(gl.RENDERBUFFER, rbo);
+	gl.renderbufferStorage(gl.RENDERBUFFER, gl.DEPTH_COMPONENT16, 1024, 1024);
+
+	gl.framebufferTexture2D(gl.FRAMEBUFFER, gl.DEPTH_ATTACHMENT, gl.TEXTURE_2D, tex, 0);
+	gl.framebufferRenderbuffer(gl.FRAMEBUFFER, gl.DEPTH_ATTACHMENT, gl.RENDERBUFFER, rbo)
+
+	if(gl.checkFramebufferStatus(gl.FRAMEBUFFER) != gl.FRAMEBUFFER_COMPLETE) {
+		console.log("shadow map framebuffer could not be created");
+	}
+}
+
+function rendershadowmap() {
+	gl.useProgram(shaderprog2);
+	var lightProjectionMatrix = mat4.create();
+	mat4.ortho(lightProjectionMatrix, -10., 10., -10., 10., -10., 20.);
+	var lightViewMatrix = mat4.create();
+	mat4.lookAt(lightViewMatrix, lightPos, [0., 0., 0.], [0., 1., 0.]);
+	//model matrix is just the identity matrix
+	mat4.mul(lightModelViewProjectionMatrix, lightProjectionMatrix, lightViewMatrix);
+    
+    //send matrix to shader
+    var matrixLoc = gl.getUniformLocation(shaderprog2, 'mvpMatrix');
+    gl.uniformMatrix4fv(matrixLoc, false, lightModelViewProjectionMatrix);
+}
 
 // main function
 // Sets up GL, shaders, callbacks, and handlers
@@ -150,8 +256,14 @@ function main(canvasid) {
     gl = quollInit(canvasid);
     if (!gl) return;  // Could not intialize; exit
 
+    //WebGL extensions for depth textures
+    var ext1 = gl.getExtension('WEBGL_depth_texture');
+    var ext2 = gl.getExtension('OES_texture_float');
+
     // Shaders
     shaderprog1 = makeProgramObjectFromIds(gl, 'vshader1', 'fshader1');
+    shaderprog2 = makeProgramObjectFromIds(gl, 'vshader2', 'fshader2');
+
 
     // Register callbacks with quoll.js
     registerDisplay(display);
@@ -166,10 +278,16 @@ function main(canvasid) {
     scene_rotate_ang = 0.;
     scene_rotate_spd = 0.;
     view_ang = 25.;
+    lightPos = vec4.fromValues(0., 1., 0., 1.);
+    lightModelViewProjectionMatrix = mat4.create();
+
+    makeShadowmapBuffers();
 
     // GL States
     gl.enable(gl.DEPTH_TEST);
 }
+
+
 
 // drawCircle
 // draws a circle with given number of slices
@@ -195,7 +313,7 @@ function drawCone(ctx, subdivs, r, g, b, a) {
     mat4.rotate(ctx.mvMatrix, ctx.mvMatrix, Math.PI/2., [0., 0., 1.]);
 	var stepSize = 2.*Math.PI/subdivs;
 	for(var ii = 0; ii < subdivs; ++ii) {
-        primBegin(ctx, gl.TRIANGLES);
+        primBegin(ctx, ctx.TRIANGLES);
         primColor(ctx, r, g, b, a);
         var point1 = vec3.fromValues(1., 0., 0.);
         var point2 = vec3.fromValues(0.,
@@ -212,13 +330,12 @@ function drawCone(ctx, subdivs, r, g, b, a) {
         var normal = vec3.create();
         vec3.cross(normal, side2, side1);
         vec3.normalize(normal, normal);
-        primNormal(gl, normal[0], normal[1], normal[2]);
-        primVertex(gl, point1[0], point1[1], point1[2]);
-        primVertex(gl, point2[0], point2[1], point2[2]);
-        primVertex(gl, point3[0], point3[1], point3[2]);
-        primEnd(gl);
+        primNormal(ctx, normal[0], normal[1], normal[2]);
+        primVertex(ctx, point1[0], point1[1], point1[2]);
+        primVertex(ctx, point2[0], point2[1], point2[2]);
+        primVertex(ctx, point3[0], point3[1], point3[2]);
+        primEnd(ctx);
 	}
-	primEnd(ctx);
 	popMvMatrix(ctx);
 }
 
@@ -347,14 +464,25 @@ function drawScene() {
     //drawGround();
     //drawFountain();
     //drawPipe(gl, 1, 1.5, 0.8, 0.8, 0.8, 1.0);
-    drawCone(gl, 100, 0.8, 0.8, 0.8, 1.0);
     popMvMatrix(gl);
 }
 
 // display function
 // shows the objects on the screen
 function display() {
+	rendershadowmap();
+
     gl.useProgram(shaderprog1);
+
+    //send aforementioned 'shift' matrix to shader
+    var lightshiftMatrix_loc = gl.getUniformLocation(shaderprog1, 'lightShiftMatrix');
+    gl.uniformMatrix4fv(lightshiftMatrix_loc, false, lightShiftMatrix);
+    //send light position to shader
+    var lightpos4_u_loc = gl.getUniformLocation(shaderprog1, 'lightpos4_u');
+    gl.uniform4fv(lightpos4_u_loc, lightPos);
+    //send light POV matrix to shader
+    var lightMVP_loc = gl.getUniformLocation(shaderprog1, 'lightPOVMatrix');
+    gl.uniformMatrix4fv(lightMVP_loc, false, lightModelViewProjectionMatrix)
 
     gl.clearColor(0.2, 0.2, 0.2, 1.0);
     gl.clear(gl.COLOR_BUFFER_BIT);
