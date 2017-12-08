@@ -326,7 +326,8 @@ function rendershadowmap() {
 	//gl.depthFunc(gl.GREATER);
 
 	var lightProjectionMatrix = mat4.create();
-	mat4.ortho(lightProjectionMatrix, -10., 10., -10., 10., -10., 20.);
+	mat4.ortho(lightProjectionMatrix, -10., 10., -10., 10., 0., 20.);
+	//mat4.perspective(lightProjectionMatrix, 90. * Math.PI/180., 16./9., 0., 100.);
 	var lightViewMatrix = mat4.create();
 	mat4.lookAt(lightViewMatrix, lightPos, [0., 0., 0.], [0., 1., 0.]);
 	//model matrix is just the identity matrix
@@ -380,7 +381,7 @@ function main(canvasid) {
     scene_rotate_spd = 0.;
     view_ang = 25.;
     lightDist = 5.;
-    lightPos = vec4.fromValues(0., lightDist, 0., 1.);
+    lightPos = vec4.fromValues(0., lightDist, 0., 0.);
     lightAngle = 0.;
     lightModelViewProjectionMatrix = mat4.create();
 
@@ -517,29 +518,30 @@ function drawGround() {
     pushMvMatrix(gl);
     mat4.scale(gl.mvMatrix, gl.mvMatrix, [8., 1., 8.]);
     mat4.rotate(gl.mvMatrix, gl.mvMatrix, Math.PI/2., [1., 0., 0.]);
-    drawCircle(gl, 80, 0., 0.5, 0., 1.0);
+    drawSquare(gl, 10., 0.4, 0.8, 0.4, 1.);
+   //drawCircle(gl, 80, 0., 0.5, 0., 1.0);
     popMvMatrix(gl);
     
     // draws the roadway
-    pushMvMatrix(gl);
-    mat4.translate(gl.mvMatrix, gl.mvMatrix, [0., 0.001, 0.]);
-    mat4.scale(gl.mvMatrix, gl.mvMatrix, [6., 1., 6.]);
-    drawRing(gl, 40, 0.5, 0.1, 0.1, 0.1, 1.0);
-    popMvMatrix(gl);
+    // pushMvMatrix(gl);
+    // mat4.translate(gl.mvMatrix, gl.mvMatrix, [0., 0.001, 0.]);
+    // mat4.scale(gl.mvMatrix, gl.mvMatrix, [6., 1., 6.]);
+    // drawRing(gl, 40, 0.5, 0.1, 0.1, 0.1, 1.0);
+    // popMvMatrix(gl);
     
-    // draws the outer road line
-    pushMvMatrix(gl);
-    mat4.translate(gl.mvMatrix, gl.mvMatrix, [0., 0.002, 0.]);
-    mat4.scale(gl.mvMatrix, gl.mvMatrix, [5.8, 1., 5.8]);
-    drawRing(gl, 40, 0.98, 0.8, 0.8, 0.8, 1.0);
-    popMvMatrix(gl);
+    // // draws the outer road line
+    // pushMvMatrix(gl);
+    // mat4.translate(gl.mvMatrix, gl.mvMatrix, [0., 0.002, 0.]);
+    // mat4.scale(gl.mvMatrix, gl.mvMatrix, [5.8, 1., 5.8]);
+    // drawRing(gl, 40, 0.98, 0.8, 0.8, 0.8, 1.0);
+    // popMvMatrix(gl);
     
-    // draws the inner road line
-    pushMvMatrix(gl);
-    mat4.translate(gl.mvMatrix, gl.mvMatrix, [0., 0.002, 0.]);
-    mat4.scale(gl.mvMatrix, gl.mvMatrix, [3.2, 1., 3.2]);
-    drawRing(gl, 40, 0.98, 0.8, 0.8, 0., 1.0);
-    popMvMatrix(gl);
+    // // draws the inner road line
+    // pushMvMatrix(gl);
+    // mat4.translate(gl.mvMatrix, gl.mvMatrix, [0., 0.002, 0.]);
+    // mat4.scale(gl.mvMatrix, gl.mvMatrix, [3.2, 1., 3.2]);
+    // drawRing(gl, 40, 0.98, 0.8, 0.8, 0., 1.0);
+    // popMvMatrix(gl);
 }
 
 // drawFountain function
@@ -609,14 +611,15 @@ function display() {
 
     // Camera transformation
     mat4.identity(gl.mvMatrix);
+    //mat4.mul(gl.mvMatrix, lightModelViewProjectionMatrix, gl.mvMatrix);
     mat4.translate(gl.mvMatrix, gl.mvMatrix, [0., 0., -8.]);
     mat4.rotate(gl.mvMatrix, gl.mvMatrix, view_ang * Math.PI/180., [1., 0., 0.]);
     mat4.rotate(gl.mvMatrix, gl.mvMatrix, scene_rotate_ang * Math.PI/180., [0., -1., 0.]);
 
-    //light position change
-    radianLightAngle = lightAngle * Math.PI/180.;
+    //light position change	
+    radianLightAngle = lightAngle * Math.PI/180.;		//WORKING HERRE
+    //vec4.set(lightPos, lightDist * Math.cos(radianLightAngle), lightDist * Math.sin(radianLightAngle), 0., 0.);
     //vec4.set(lightPos, lightDist * Math.cos(radianLightAngle), lightDist * Math.sin(radianLightAngle), 0., 1.);
-    vec4.set(lightPos, lightDist * Math.cos(radianLightAngle), lightDist * Math.sin(radianLightAngle), 0., 1.);
 
     // draw all the things
     drawScene();
