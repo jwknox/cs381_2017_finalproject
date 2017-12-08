@@ -160,23 +160,50 @@ void main()
         surfnorm);
 
     //shadows:
-    float visibility = 1.0;
-    // float acneBgone = 0.007;
-    // fragmentDepth.z -= acneBgone;
+  vec3 fragmentDepth = shadowCoord_var.xyz;
+  // float shadowAcneRemover = 0.007;
+  // fragmentDepth.z -= shadowAcneRemover;
+  float visibility = 1.0;
 
     //float texelSize = 1. / 1024.;
 
     //test if current frag is in shadow
-    // float shadowDepth = decodeFloat(texture2D(shadowMap, shadowCoord_var.xy));
-    float shadowDepth = texture2D(shadowMap, shadowCoord_var.xy).r;
+    float shadowDepth = decodeFloat(texture2D(shadowMap, fragmentDepth.xy));
+    //float shadowDepth = texture2D(shadowMap, fragmentDepth.xy).r;
+    //float shadowDepth = decodeFloat(texture2DProj(shadowMap, fragmentDepth));
    
-    if( shadowCoord_var.z < shadowDepth ) {
+    if( fragmentDepth.z > shadowDepth ) {
     	visibility = 0.5;
     }
 
     // Send color to framebuffer
     gl_FragColor = vec4(visibility * litcolor.rgb, 1.0);
-    //gl_FragColor = texture2D(shadowMap, shadowCoord_var.xy);
+    //gl_FragColor = vec4(shadowDepth, 0., 0., 1.);
+    //gl_FragColor = vec4(fragmentDepth.z, 0., 0., 1.);
+
+
+//cpy paste from example for testing:
+  // vec3 fragmentDepth = shadowCoord_var.xyz;
+  // float shadowAcneRemover = 0.007;
+  // fragmentDepth.z -= shadowAcneRemover;
+
+  // float texelSize = 1.0 / 1024.0;
+  // float amountInLight = 0.0;
+
+  // for (int x = -1; x <= 1; x++) {
+  //   for (int y = -1; y <= 1; y++) {
+  //     float texelDepth = decodeFloat(texture2D(shadowMap,
+  //     fragmentDepth.xy + vec2(x, y) * texelSize));
+  //     if (fragmentDepth.z < texelDepth) {
+  //       amountInLight += 1.0;
+  //     }
+  //   }
+  // }
+  // amountInLight /= 9.0;
+
+  // gl_FragColor = vec4(amountInLight * litcolor.rgb, 1.0);
+  //end cpy paste
+
 }
 </script>
 
@@ -220,8 +247,8 @@ void main()
 	}
 
 	void main() {
-		//gl_FragColor = encodeFloat(gl_FragCoord.z);
-		gl_FragColor.r = gl_FragCoord.z;
+		gl_FragColor = encodeFloat(gl_FragCoord.z);
+		//gl_FragColor.r = gl_FragCoord.z;
 
 	}
 </script>
@@ -243,7 +270,9 @@ var shaderprog2;		// Shader program used for shadowmaps
 var scene_rotate_ang;
 var scene_rotate_spd;
 var view_ang;
+var lightDist;			//'distance' of sun
 var lightPos; 			//position of 'sun'
+var lightAngle;			//angle of the 'sun' in 2 dimensions from 'noon'
 
 var lightModelViewProjectionMatrix; //MVP matrix from the perspective of the light source
 var shadowMapTexture;
@@ -263,16 +292,16 @@ function makeShadowmapBuffers() {
 
 	gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.NEAREST);
 	gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.NEAREST);
-	//gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE);
-	//gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
-	gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, 1024, 1024,
-		0, gl.RGBA, gl.UNSIGNED_BYTE, null);
+	gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE);
+	gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
+	gl.texImage2D(gl.TEXTURE_2D, 0., gl.RGBA, 1024., 1024.,
+		0., gl.RGBA, gl.UNSIGNED_BYTE, null);
 
 	rbo = gl.createRenderbuffer();
 	gl.bindRenderbuffer(gl.RENDERBUFFER, rbo);
-	gl.renderbufferStorage(gl.RENDERBUFFER, gl.DEPTH_COMPONENT16, 1024, 1024);
+	gl.renderbufferStorage(gl.RENDERBUFFER, gl.DEPTH_COMPONENT16, 1024., 1024.);
 
-	gl.framebufferTexture2D(gl.FRAMEBUFFER, gl.COLOR_ATTACHMENT0, gl.TEXTURE_2D, shadowMapTexture, 0);
+	gl.framebufferTexture2D(gl.FRAMEBUFFER, gl.COLOR_ATTACHMENT0, gl.TEXTURE_2D, shadowMapTexture, 0.);
 	gl.framebufferRenderbuffer(gl.FRAMEBUFFER, gl.DEPTH_ATTACHMENT, gl.RENDERBUFFER, rbo);
 
 	gl.bindTexture(gl.TEXTURE_2D, null);
@@ -286,21 +315,23 @@ function makeShadowmapBuffers() {
 
 function rendershadowmap() {
 	gl.useProgram(shaderprog2);
-
+	pushPMatrix(gl);
+	gl.bindFramebuffer(gl.FRAMEBUFFER, fbo);
+	//gl.enable(gl.CULL_FACE);
+	//gl.disable(gl.DEPTH_TEST);
 	//we need to temporarily change the viewport, so we'll save the old one
 	//and re-set that one when we're done
 	var oldViewport = gl.getParameter(gl.VIEWPORT);
 	gl.viewport(0., 0., 1024., 1024.);
-	pushPMatrix(gl);
+	//gl.depthFunc(gl.GREATER);
 
 	var lightProjectionMatrix = mat4.create();
-	mat4.ortho(lightProjectionMatrix, -40., 40., -40., 40., -40., 80.);
+	mat4.ortho(lightProjectionMatrix, -10., 10., -10., 10., -10., 20.);
 	var lightViewMatrix = mat4.create();
 	mat4.lookAt(lightViewMatrix, lightPos, [0., 0., 0.], [0., 1., 0.]);
 	//model matrix is just the identity matrix
 	mat4.mul(lightModelViewProjectionMatrix, lightProjectionMatrix, lightViewMatrix);
-
-	gl.bindFramebuffer(gl.FRAMEBUFFER, fbo);
+	
     //gl.clearColor(0., 0., 0., 1.);
     gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
 
@@ -309,11 +340,13 @@ function rendershadowmap() {
     gl.uniformMatrix4fv(matrixLoc, false, lightModelViewProjectionMatrix);
 
     drawScene();
+
     gl.bindFramebuffer(gl.FRAMEBUFFER, null);
 
     //reset viewport
     gl.viewport(oldViewport[0], oldViewport[1], oldViewport[2], oldViewport[3]);
-
+    //gl.enable(gl.DEPTH_TEST);
+    //gl.depthFunc(gl.LESS);
     popPMatrix(gl);
 }
 
@@ -346,7 +379,9 @@ function main(canvasid) {
     scene_rotate_ang = 0.;
     scene_rotate_spd = 0.;
     view_ang = 25.;
-    lightPos = vec4.fromValues(2., 5., 0., 1.);
+    lightDist = 5.;
+    lightPos = vec4.fromValues(0., lightDist, 0., 1.);
+    lightAngle = 0.;
     lightModelViewProjectionMatrix = mat4.create();
 
     // GL States
@@ -528,13 +563,31 @@ function drawFountain() {
 function drawScene() {
     pushMvMatrix(gl);
     drawGround();
-    drawFountain();
+    //drawFountain();
+
+    pushMvMatrix(gl);
+    mat4.scale(gl.mvMatrix, gl.mvMatrix, [3., 3., 3.]);
+    popMvMatrix(gl);
+
+    // pushMvMatrix(gl);
+    // mat4.translate(gl.mvMatrix, gl.mvMatrix, lightPos);
+    // drawSphere(gl, .2, 10., 10., 1., 1., 1., 1.)
+    // popMvMatrix(gl);
     //drawPipe(gl, 1, 1.5, 0.8, 0.8, 0.8, 1.0);
+    // pushMvMatrix(gl);
+    	//mat4.translate(gl.mvMatrix, gl.mvMatrix, [0., 1., 0.]);
+    	//drawCube(gl, 0.5, 0.8, 0.8, 0.8, 1.);
+    	//drawClosedCylinder(gl, 40, 0.8, 0.8, 0.8, 1.0);
+    pushMvMatrix(gl);
+    mat4.translate(gl.mvMatrix, gl.mvMatrix, [0., 1., 0.]);
+    drawSphere(gl, 1., 100., 100., 1., 1., 1., 1.);
+    popMvMatrix(gl);
+    // popMvMatrix(gl);
     popMvMatrix(gl);
 }
 
 // display function
-// shows the objects on the screen
+// shows the objects on the scwreen
 function display() {
 	rendershadowmap();
     gl.useProgram(shaderprog1);
@@ -542,12 +595,12 @@ function display() {
     var sampler_loc = gl.getUniformLocation(shaderprog1, 'shadowMap');
     gl.activeTexture(gl.TEXTURE0);
     gl.bindTexture(gl.TEXTURE_2D, shadowMapTexture);
-    gl.uniform1i(sampler_loc, 0);
+    //gl.uniform1i(sampler_loc, 0);
 
     //send light position to shader
     var lightpos4_u_loc = gl.getUniformLocation(shaderprog1, 'lightpos4_u');
     gl.uniform4fv(lightpos4_u_loc, lightPos);
-    //send light POV matrix to shader
+    //send light MVP matrix to shader
     var lightMVP_loc = gl.getUniformLocation(shaderprog1, 'lightPOVMatrix');
     gl.uniformMatrix4fv(lightMVP_loc, false, lightModelViewProjectionMatrix)
 
@@ -559,6 +612,11 @@ function display() {
     mat4.translate(gl.mvMatrix, gl.mvMatrix, [0., 0., -8.]);
     mat4.rotate(gl.mvMatrix, gl.mvMatrix, view_ang * Math.PI/180., [1., 0., 0.]);
     mat4.rotate(gl.mvMatrix, gl.mvMatrix, scene_rotate_ang * Math.PI/180., [0., -1., 0.]);
+
+    //light position change
+    radianLightAngle = lightAngle * Math.PI/180.;
+    //vec4.set(lightPos, lightDist * Math.cos(radianLightAngle), lightDist * Math.sin(radianLightAngle), 0., 1.);
+    vec4.set(lightPos, lightDist * Math.cos(radianLightAngle), lightDist * Math.sin(radianLightAngle), 0., 1.);
 
     // draw all the things
     drawScene();
@@ -583,6 +641,10 @@ function reshape(w, h) {
 function idle() {
     var elapsed_time = getElapsedTime(0.1);
     scene_rotate_ang += scene_rotate_spd * elapsed_time;
+    
+    //rotate 'sun' around the scene
+    lightAngle += 0.1;
+
     postRedisplay();
 }
 
