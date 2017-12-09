@@ -372,37 +372,39 @@ function drawCar(r, g, b) {
     drawCube(gl, 1, 0.7, 0.7, 0.7, 1.);
     popMvMatrix(gl);
     
-    // front left tire
+    // tires
     pushMvMatrix(gl);
-    mat4.translate(gl.mvMatrix, gl.mvMatrix, [-0.42, 0.24, -0.73]);
-    mat4.rotate(gl.mvMatrix, gl.mvMatrix, Math.PI/2., [0., 0., 1.]);
-    mat4.scale(gl.mvMatrix, gl.mvMatrix, [0.24, 0.12, 0.24]);
-    mat4.rotate(gl.mvMatrix, gl.mvMatrix, Math.PI/4., [0., 1., 0.]);
-    drawClosedCylinder(gl, 20, 0.2, 0.2, 0.2, 1.);
+    mat4.translate(gl.mvMatrix, gl.mvMatrix, [0., 0.24, -0.73]);
+    drawWheelPair();
+    mat4.translate(gl.mvMatrix, gl.mvMatrix, [0., 0., 1.46]);
+    drawWheelPair();
     popMvMatrix(gl);
-    
-    // front right tire
+}
+
+// drawWheelPair function
+// draws a pair of wheels, separated by 1 unit
+function drawWheelPair() {
     pushMvMatrix(gl);
-    mat4.translate(gl.mvMatrix, gl.mvMatrix, [0.42, 0.24, -0.73]);
-    mat4.rotate(gl.mvMatrix, gl.mvMatrix, Math.PI/2., [0., 0., 1.]);
-    mat4.scale(gl.mvMatrix, gl.mvMatrix, [0.24, 0.12, 0.24]);
-    drawClosedCylinder(gl, 20, 0.2, 0.2, 0.2, 1.);
+    // left wheel
+    mat4.translate(gl.mvMatrix, gl.mvMatrix, [-0.42, 0., 0.]);
+    drawWheel();
+    // right wheel
+    mat4.rotate(gl.mvMatrix, gl.mvMatrix, Math.PI, [0., 1., 0.]);
+    mat4.translate(gl.mvMatrix, gl.mvMatrix, [-0.84, 0., 0.]);
+    drawWheel();
     popMvMatrix(gl);
-    
-    // back left tire
+}
+
+// drawWheel function
+// draws a wheel
+function drawWheel() {
     pushMvMatrix(gl);
-    mat4.translate(gl.mvMatrix, gl.mvMatrix, [-0.42, 0.24, 0.73]);
     mat4.rotate(gl.mvMatrix, gl.mvMatrix, Math.PI/2., [0., 0., 1.]);
     mat4.scale(gl.mvMatrix, gl.mvMatrix, [0.24, 0.12, 0.24]);
-    drawClosedCylinder(gl, 20, 0.2, 0.2, 0.2, 1.);
-    popMvMatrix(gl);
-    
-    // back right tire
-    pushMvMatrix(gl);
-    mat4.translate(gl.mvMatrix, gl.mvMatrix, [0.42, 0.24, 0.73]);
-    mat4.rotate(gl.mvMatrix, gl.mvMatrix, Math.PI/2., [0., 0., 1.]);
-    mat4.scale(gl.mvMatrix, gl.mvMatrix, [0.24, 0.12, 0.24]);
-    drawClosedCylinder(gl, 20, 0.2, 0.2, 0.2, 1.);
+    drawPipe(gl, 20, 0.6, 0.2, 0.2, 0.2, 1.);
+    mat4.rotate(gl.mvMatrix, gl.mvMatrix, Math.PI/2., [1., 0., 0.]);
+    mat4.translate(gl.mvMatrix, gl.mvMatrix, [0., 0., -0.7]);
+    drawCircle(gl, 20, 0.6, 0.6, 0.6, 1.0);
     popMvMatrix(gl);
 }
 
