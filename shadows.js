@@ -81,7 +81,7 @@ function main(canvasid) {
 
     // Scene init
     scene_rotate_ang = 0.;
-    scene_rotate_spd = 0.;
+    scene_rotate_spd = -20.;
     view_ang = 25.;
     camera_view = false;
     
@@ -136,13 +136,28 @@ function createFrameBufferObject(width, height) {
 // draws everything
 function drawScene() {
     pushMvMatrix(gl);
-    //drawGround();
-    //drawFountain();
-    mat4.rotate(gl.mvMatrix, gl.mvMatrix, -Math.PI/2., [1., 0., 0.]);
-    drawSquare(gl, 8, 0., 0.5, 0., 1.);
-    mat4.rotate(gl.mvMatrix, gl.mvMatrix, Math.PI/2., [1., 0., 0.]);
-    mat4.translate(gl.mvMatrix, gl.mvMatrix, [0., 1., 0.]);
-    drawCube(gl, 1, 40, 20, 0.5, 0.5, 0.3, 1.0);
+    drawGround();
+    drawFountain();
+    mat4.rotate(gl.mvMatrix, gl.mvMatrix, scene_rotate_ang * Math.PI/180., [0., -1., 0.]);
+    pushMvMatrix(gl);
+    mat4.translate(gl.mvMatrix, gl.mvMatrix, [4.2, 0., 0.]);
+    drawCar(0.6, 0.2, 0.2);
+    popMvMatrix(gl);
+    pushMvMatrix(gl);
+    mat4.rotate(gl.mvMatrix, gl.mvMatrix, Math.PI/2., [0., 1., 0.]);
+    mat4.translate(gl.mvMatrix, gl.mvMatrix, [4.2, 0., 0.]);
+    drawCar(0.2, 0.6, 0.2);
+    popMvMatrix(gl);
+    pushMvMatrix(gl);
+    mat4.rotate(gl.mvMatrix, gl.mvMatrix, Math.PI, [0., 1., 0.]);
+    mat4.translate(gl.mvMatrix, gl.mvMatrix, [4.2, 0., 0.]);
+    drawCar(0.2, 0.2, 0.6);
+    popMvMatrix(gl);
+    pushMvMatrix(gl);
+    mat4.rotate(gl.mvMatrix, gl.mvMatrix, 3.*Math.PI/2., [0., 1., 0.]);
+    mat4.translate(gl.mvMatrix, gl.mvMatrix, [4.2, 0., 0.]);
+    drawCar(0.6, 0.6, 0.2);
+    popMvMatrix(gl);
     popMvMatrix(gl);
 }
 
@@ -178,7 +193,6 @@ function display() {
         mat4.identity(gl.mvMatrix);
         mat4.translate(gl.mvMatrix, gl.mvMatrix, [0., 0., -8.]);
         mat4.rotate(gl.mvMatrix, gl.mvMatrix, view_ang * Math.PI/180., [1., 0., 0.]);
-        mat4.rotate(gl.mvMatrix, gl.mvMatrix, scene_rotate_ang * Math.PI/180., [0., -1., 0.]);
         mat4.identity(gl.pMatrix);
         mat4.perspective(gl.pMatrix, Math.PI/180. * 60., canvas_width/canvas_height, 0.1, 20.);
 
@@ -218,13 +232,13 @@ function keyboard(event) {
     // Move camera up and down
     case 'W':
     case 'w':
-        //if (view_ang > 1)
+        if (view_ang > 1)
             view_ang -= 1;
         postRedisplay();
         break;
     case 'S':
     case 's':
-        //if (view_ang < 90)
+        if (view_ang < 90)
             view_ang += 1;
         postRedisplay();
         break;

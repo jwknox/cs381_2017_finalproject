@@ -1,0 +1,33 @@
+\documentclass[12pt]{article}
+\setlength{\parindent}{0pt}
+\raggedbottom
+
+\usepackage[margin=1in]{geometry}
+\usepackage{titlesec}
+\usepackage{parskip}
+\usepackage{tabu}
+\usepackage{fancyhdr}
+\usepackage{setspace}
+\usepackage{amsmath}
+\usepackage{amssymb}
+\usepackage{graphicx}
+\usepackage{color}
+\usepackage{float}
+
+\pagestyle{fancy}
+\fancyhf{}
+\cfoot{\thepage}
+
+\newcommand{\chapter}[1]{\textcolor{blue}{\textbf{\Large{#1}}}}
+\newcommand{\question}[2]{\textcolor{blue}{\textbf{#1} #2}}
+\newcommand{\note}[1]{\textcolor{red}{#1}}
+\newcommand{\code}[1]{\texttt{#1}}
+\newcommand{\homework}[3]{
+    \chead{#1}\rhead{Knox}
+    \thispagestyle{plain}
+    \makebox[\textwidth]{\textbf{#1}}
+    \makebox[\textwidth]{Bryce Melegari and Joe Knox}
+    \makebox[\textwidth]{Instructor: #2}
+    \makebox[\textwidth]{Due: #3}\vspace{0.5em}\hrule}
+\titleformat{\section}{\Large\color{blue}}{}{0pt}{\textbf}
+\titleformat{\subsection}{\large\color{blue}}{}{0pt}{\textbf}

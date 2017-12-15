@@ -13,7 +13,8 @@ Blinn-Phong lighting implementation courtesy of Glenn G. Chappell
 </head>
 <body onload="main('maincanv')" style="overflow: hidden; margin: 0; padding: 0; background-color: #333">
 <p style="text-align: center; color: #fff;">W/S: Tilt view up/down<br>
-A/D: Increase/decrease scene rotation</p>
+A/D: Increase/decrease scene rotation<br>
+C: View shadow texture</p>
 <canvas id="maincanv" style="display: block; margin: 0; padding: 0;"></canvas>
 <script type="text/javascript" src="gl-matrix-min.js"></script>
 <script type="text/javascript" src="quoll.js"></script>
@@ -75,7 +76,7 @@ bool inShadow() {
     // Take out of homogeneous form and normalize to [0, 1]
     vec3 vertex_rel_to_light3 = (vertex_rel_to_light.xyz / vertex_rel_to_light.w) / 2. + 0.5;
     vec4 smap_color = texture2D(smap_sampler, vertex_rel_to_light3.xy);
-    return vertex_rel_to_light3.z > (smap_color.z+0.68);
+    return vertex_rel_to_light3.z > (smap_color.z + 2./3.); // Can't figure out why this doesn't work with anything but values close to 2/3
 }
 
 // bpLight

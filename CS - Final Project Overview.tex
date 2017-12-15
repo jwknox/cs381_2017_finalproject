@@ -1,0 +1,13 @@
+\include{project_style}
+\begin{document}
+\homework{CS 381 - Computer Graphics - Final Project}{Glenn G. Chappell}{December 9, 2017}
+
+\question{Topic:}{}Shadow Mapping
+
+\question{Description:}{}Shadow mapping is a technique for rendering realistic-looking shadows in a graphics application. In real life, shadows are created when one object moves between the path of a light to another object; direct light is blocked, leaving only the surrounding ambient light within the area of the shadow. To accomplish this, a view projection is created from the originating location or direction of the light onto the scene. A separate set of shaders is used to measure the distance from the light to each fragment, and this information is recorded into a texture. When rendering the scene as normal, each fragment also has its distance to the light source calculated: any fragment that has a larger distance to the light source than the corresponding coordinate in the shadow texture is being occluded by another object, and so is in shadow. Fragments in shadow are lit only by their ambient color, rather than the ambient, diffuse, and specular colors of the Blinn-Phong model we used for the project.
+
+\question{Using the code:}{}Open \texttt{shadows.html}. The scene begins automatically, with the light source directly above the scene and rotating clockwise around the scene, similar to light from the sun. The W and S keys tilt the camera up and down, the A and D keys accelerate or decelerate the cars. The C key can be used to view the shadow texture.
+
+\question{Final notes:}{}For some reason that neither Bryce nor I could determine, the shadows would never render properly. Rendering the distance to light onto a texture worked fine, but something between sending the shadow matrix to the shaders and sampling the texture for a fragment's distance kept failing and despite nearly a week solid of debugging and frustration, we never determined the cause or solution. We both hate the idea of turning in a project unfinished and subpar, but it eventually became our only option.
+
+\end{document}
