@@ -1,7 +1,7 @@
 // shadows.js
 // Bryce Melegari, Joe Knox
 // Created: 2017-11-20
-// Updated: 2017-12-13
+// Updated: 2017-12-15
 // Main script file for CS 381 Final Project
 // Uses quoll.js for legacy-like primitives
 
@@ -60,7 +60,6 @@ function main(canvasid) {
         return;
     }
     default_shaders.lightpos_unif = gl.getUniformLocation(default_shaders, 'lightpos_unif');
-    //default_shaders.smap_sampler = gl.getUniformLocation(default_shaders, 'smap_sampler');
     default_shaders.shadowmapMatrix = gl.getUniformLocation(default_shaders, 'shadowmapMatrix');
     shadowmap_shaders = makeProgramObjectFromIds(gl, 'shadowmap_vertex_shader', 'shadowmap_fragment_shader');
     if (!shadowmap_shaders) {
@@ -88,7 +87,7 @@ function main(canvasid) {
     
     // Light init
     light_pos = vec4.fromValues(0., 10., 0., 1.);
-    light_ang = 1.;
+    light_ang = 0.;
     light_rotate_spd = 10.;
     
     // Window init
@@ -143,7 +142,7 @@ function drawScene() {
     drawSquare(gl, 8, 0., 0.5, 0., 1.);
     mat4.rotate(gl.mvMatrix, gl.mvMatrix, Math.PI/2., [1., 0., 0.]);
     mat4.translate(gl.mvMatrix, gl.mvMatrix, [0., 1., 0.]);
-    drawCube(gl, 1, 40, 20, 0.8, 0.8, 0.6, 1.0);
+    drawCube(gl, 1, 40, 20, 0.5, 0.5, 0.3, 1.0);
     popMvMatrix(gl);
 }
 
@@ -153,7 +152,7 @@ function display() {
     // Render to texture for shadow mapping
     if (!camera_view) gl.bindFramebuffer(gl.FRAMEBUFFER, shadow_fbo);
     gl.viewport(0, 0, 1024, 1024);
-    gl.clearColor(0., 0., 0., 1.);
+    gl.clearColor(1., 1., 1., 1.);
     gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
     gl.useProgram(shadowmap_shaders);
     
@@ -163,7 +162,7 @@ function display() {
     mat4.identity(gl.pMatrix);
     mat4.ortho(gl.pMatrix, -10., 10., -10., 10., -10., 20.);
     var shadowmap_transform = mat4.create();
-    mat4.mul(shadowmap_transform, gl.mvMatrix, gl.pMatrix);
+    mat4.mul(shadowmap_transform, gl.pMatrix, gl.mvMatrix);
     drawScene();
     
     // Render normally
@@ -173,8 +172,7 @@ function display() {
         gl.clearColor(0.2, 0.2, 0.2, 1.);
         gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
         gl.useProgram(default_shaders);
-        //gl.uniform1i(default_shaders.smap_sampler, 0);
-        //alert('Coming Out: '+default_shaders.smap_sampler);
+        gl.uniformMatrix4fv(default_shaders.shadowmapMatrix, false, shadowmap_transform);
         
         // Camera transformation
         mat4.identity(gl.mvMatrix);
@@ -187,12 +185,7 @@ function display() {
         // light transform
         var world_light = vec4.create();
         vec4.transformMat4(world_light, light_pos, gl.mvMatrix);
-        //alert('Going In: '+vec4.str(world_light));
         gl.uniform4fv(default_shaders.lightpos_unif, world_light);
-        //alert('Coming Out: '+default_shaders.lightpos_unif);
-        //alert('Going In: '+vec4.str(shadowmap_transform));
-        gl.uniformMatrix4fv(default_shaders.shadowmapMatrix, false, shadowmap_transform);
-        //alert('Coming Out: '+default_shaders.shadowmapMatrix);
         drawScene();
     }
     
@@ -211,7 +204,7 @@ function reshape(width, height) {
 function idle() {
     var elapsed_time = getElapsedTime(0.1);
     scene_rotate_ang += scene_rotate_spd * elapsed_time;
-    //light_ang += light_rotate_spd * elapsed_time;
+    light_ang += light_rotate_spd * elapsed_time;
     light_pos = vec4.fromValues(10.*Math.sin(light_ang * Math.PI/180.), 10.*Math.cos(light_ang * Math.PI/180.), 0., 1.);
     postRedisplay();
 }

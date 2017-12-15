@@ -1,12 +1,12 @@
 // qshapes.js
 // Bryce Melegari, Joe Knox
 // Created: 2017-11-20
-// Updated: 2017-12-13
+// Updated: 2017-12-15
 // Additional shapes for CS 381 Final Project
 // Uses quoll.js for legacy-like primitives
 
 // drawCircle
-// draws a circle with given number of slices
+// Draws a circle with given number of slices
 function drawCircle(ctx, subdivs, r, g, b, a) {
     pushMvMatrix(ctx);
     primBegin(ctx, ctx.TRIANGLE_FAN);
@@ -23,7 +23,7 @@ function drawCircle(ctx, subdivs, r, g, b, a) {
 }
 
 // drawCone
-// draws an open cone
+// Draws an open cone
 function drawCone(ctx, subdivs, r, g, b, a) {
 	pushMvMatrix(ctx);
     mat4.rotate(ctx.mvMatrix, ctx.mvMatrix, Math.PI/2., [0., 0., 1.]);
@@ -57,7 +57,7 @@ function drawCone(ctx, subdivs, r, g, b, a) {
 }
 
 // drawClosedCylinder
-// draws a cylinder with closed ends
+// Draws a cylinder with closed ends
 function drawClosedCylinder(ctx, subdivs, r, g, b, a) {
     pushMvMatrix(ctx);
     mat4.rotate(ctx.mvMatrix, ctx.mvMatrix, Math.PI/2., [0., 0., 1.]);
@@ -81,7 +81,7 @@ function drawClosedCylinder(ctx, subdivs, r, g, b, a) {
 }
 
 // drawRing
-// draws an annulus, with radii 1 and given
+// Draws an annulus, with radii 1 and given
 function drawRing(ctx, subdivs, rad, r, g, b, a) {
     pushMvMatrix(ctx);
     mat4.rotate(ctx.mvMatrix, ctx.mvMatrix, Math.PI/2., [1., 0., 0.]);
@@ -101,7 +101,7 @@ function drawRing(ctx, subdivs, rad, r, g, b, a) {
 }
 
 // drawPipe
-// draws a closed annular prism, with radii 1 and given
+// Draws a closed annular prism, with radii 1 and given
 function drawPipe(ctx, subdivs, rad, r, g, b, a) {
     pushMvMatrix(ctx);
     mat4.rotate(ctx.mvMatrix, ctx.mvMatrix, Math.PI/2., [0., 0., 1.]);
@@ -127,7 +127,7 @@ function drawPipe(ctx, subdivs, rad, r, g, b, a) {
 }
 
 // drawGround function
-// draws the ground and road
+// Draws the ground and road
 function drawGround() {
     // draws the grass field
     pushMvMatrix(gl);
@@ -159,7 +159,7 @@ function drawGround() {
 }
 
 // drawFountain function
-// draws the fountain in the center of the roundabout
+// Draws the fountain in the center of the roundabout
 function drawFountain() {
     pushMvMatrix(gl);
     mat4.scale(gl.mvMatrix, gl.mvMatrix, [0.8, 0.1, 0.8]);
@@ -171,5 +171,73 @@ function drawFountain() {
     mat4.rotate(gl.mvMatrix, gl.mvMatrix, Math.PI/2., [1., 0., 0.]);
     mat4.scale(gl.mvMatrix, gl.mvMatrix, [0.7, 0.7, 1.0]);
     drawCircle(gl, 40, 0.4, 0.4, 1.0, 1.0);
+    popMvMatrix(gl);
+}
+
+// drawCar function
+// Draws a car with given body color
+function drawCar(r, g, b) {
+    // main body
+    pushMvMatrix(gl);
+    mat4.translate(gl.mvMatrix, gl.mvMatrix, [0., 0.43, 0.]);
+    mat4.scale(gl.mvMatrix, gl.mvMatrix, [1., 0.48, 2.4]);
+    drawCube(gl, 1, r, g, b, 1.);
+    popMvMatrix(gl);
+    // cab
+    pushMvMatrix(gl);
+    mat4.translate(gl.mvMatrix, gl.mvMatrix, [0., 0.845, 0.2]);
+    mat4.scale(gl.mvMatrix, gl.mvMatrix, [1., 0.35, 0.8]);
+    drawCube(gl, 1, r, g, b, 1.);
+    popMvMatrix(gl);
+    
+    // front window
+    pushMvMatrix(gl);
+    mat4.translate(gl.mvMatrix, gl.mvMatrix, [0., 0.693, -0.415]);
+    mat4.rotate(gl.mvMatrix, gl.mvMatrix, -Math.PI/6., [1., 0., 0.]);
+    mat4.scale(gl.mvMatrix, gl.mvMatrix, [0.999, 0.35, 0.7]);
+    drawCube(gl, 1, 0.7, 0.7, 0.7, 1.);
+    popMvMatrix(gl);
+    
+    // back window
+    pushMvMatrix(gl);
+    mat4.translate(gl.mvMatrix, gl.mvMatrix, [0., 0.648, 0.725]);
+    mat4.rotate(gl.mvMatrix, gl.mvMatrix, Math.PI/4., [1., 0., 0.]);
+    mat4.scale(gl.mvMatrix, gl.mvMatrix, [0.999, 0.35, 0.7]);
+    drawCube(gl, 1, 0.7, 0.7, 0.7, 1.);
+    popMvMatrix(gl);
+    
+    // tires
+    pushMvMatrix(gl);
+    mat4.translate(gl.mvMatrix, gl.mvMatrix, [0., 0.24, -0.73]);
+    drawWheelPair();
+    mat4.translate(gl.mvMatrix, gl.mvMatrix, [0., 0., 1.46]);
+    drawWheelPair();
+    popMvMatrix(gl);
+}
+
+// drawWheelPair function
+// Draws a pair of wheels, separated by 1 unit
+function drawWheelPair() {
+    pushMvMatrix(gl);
+    // left wheel
+    mat4.translate(gl.mvMatrix, gl.mvMatrix, [-0.42, 0., 0.]);
+    drawWheel();
+    // right wheel
+    mat4.rotate(gl.mvMatrix, gl.mvMatrix, Math.PI, [0., 1., 0.]);
+    mat4.translate(gl.mvMatrix, gl.mvMatrix, [-0.84, 0., 0.]);
+    drawWheel();
+    popMvMatrix(gl);
+}
+
+// drawWheel function
+// Draws a wheel
+function drawWheel() {
+    pushMvMatrix(gl);
+    mat4.rotate(gl.mvMatrix, gl.mvMatrix, Math.PI/2., [0., 0., 1.]);
+    mat4.scale(gl.mvMatrix, gl.mvMatrix, [0.24, 0.12, 0.24]);
+    drawPipe(gl, 20, 0.6, 0.2, 0.2, 0.2, 1.);
+    mat4.rotate(gl.mvMatrix, gl.mvMatrix, Math.PI/2., [1., 0., 0.]);
+    mat4.translate(gl.mvMatrix, gl.mvMatrix, [0., 0., -0.7]);
+    drawCircle(gl, 20, 0.6, 0.6, 0.6, 1.0);
     popMvMatrix(gl);
 }

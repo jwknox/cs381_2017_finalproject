@@ -2,11 +2,10 @@
 <!-- shadows.html
 Bryce Melegari, Joe Knox
 Created: 2017-11-20
-Updated: 2017-12-13
-HTML file for CS 381 Final Project
-
+Updated: 2017-12-15
+HTML file and shaders for CS 381 Final Project
+Blinn-Phong lighting implementation courtesy of Glenn G. Chappell
 -->
-
 <html>
 <head>
 <meta charset="utf-8">
@@ -20,13 +19,15 @@ A/D: Increase/decrease scene rotation</p>
 <script type="text/javascript" src="quoll.js"></script>
 <script type="text/javascript" src="qshapes.js"></script>
 <script id="vertex_shader" type="x-shader/x-vertex">
-//Default Vertex Shader
+// Default Vertex Shader
 precision highp float;
 
 uniform mat4 projectionMatrix;
 uniform mat4 modelViewMatrix;
 uniform mat3 normalMatrix;
 uniform mat4 shadowmapMatrix;
+
+uniform vec4 lightpos_unif;
 
 attribute vec4 vertex_attr;
 attribute vec4 color_attr;
@@ -36,6 +37,7 @@ varying vec4 paintcolor_var;
 varying vec3 surfpt_var;
 varying vec3 surfnorm_var;
 varying vec4 vertex_rel_to_light;
+varying vec4 lightpos_var;
 
 void main()
 {
@@ -50,29 +52,30 @@ void main()
 
     // Send paint color to fragment shader
     paintcolor_var = color_attr;
+    
+    // Send light position to fragment shader
+    lightpos_var = lightpos_unif;
 }
 </script>
 <script id="fragment_shader" type="x-shader/x-fragment">
 // Default Fragment Shader
 precision highp float;
 
-uniform vec4 lightpos_unif;
 uniform sampler2D smap_sampler;
 
 varying vec4 paintcolor_var;
 varying vec3 surfpt_var;
 varying vec3 surfnorm_var;
 varying vec4 vertex_rel_to_light;
+varying vec4 lightpos_var;
 
 // inShadow
 // Determine if this fragment is in shadow
 bool inShadow() {
-    // Take out of homogeneous form
-    vec3 vertex_rel_to_light3 = vertex_rel_to_light.xyz / vertex_rel_to_light.w;
-    // Normalize to [0, 1]
-    vertex_rel_to_light3 = vertex_rel_to_light3 * 0.5 + 0.5;
+    // Take out of homogeneous form and normalize to [0, 1]
+    vec3 vertex_rel_to_light3 = (vertex_rel_to_light.xyz / vertex_rel_to_light.w) / 2. + 0.5;
     vec4 smap_color = texture2D(smap_sampler, vertex_rel_to_light3.xy);
-    return vertex_rel_to_light3.z > smap_color.r;
+    return vertex_rel_to_light3.z > (smap_color.z+0.68);
 }
 
 // bpLight
@@ -102,7 +105,7 @@ vec4 bpLight(
 
     // Ambient
     vec4 ambientcolor = ambientfrac * lightcolor * paintcolor;
-    //if (inShadow()) return clamp(ambientcolor, 0., 1.);
+    if (inShadow()) return clamp(ambientcolor, 0., 1.);
 
     // Diffuse
     // Lambert cosine (or 0 if this is negative)
@@ -118,7 +121,6 @@ vec4 bpLight(
     vec4 specularcolor = specularcoeff * lightcolor;
 
     // ***** Combine the Three Parts *****
-    if (inShadow()) return clamp(ambientcolor + diffusecolor + specularcolor, 0., 1.).gbra;
     return clamp(ambientcolor + diffusecolor + specularcolor, 0., 1.);
 }
 
@@ -133,7 +135,7 @@ void main()
     // Apply Blinn-Phong Illumination Model
     vec4 litcolor = bpLight(
         lightcolor,
-        lightpos_unif,
+        lightpos_var,
         paintcolor_var,
         surfpt_var,
         surfnorm);
@@ -165,6 +167,5 @@ void main() {
 }
 </script>
 <script type="text/javascript" src="shadows.js"></script>
-
 </body>
 </html>
