@@ -2,9 +2,11 @@
 <!-- shadows.html
 Bryce Melegari, Joe Knox
 Created: 2017-11-20
-Updated: 2017-12-05
+Updated: 2017-12-13
 HTML file for CS 381 Final Project
-Shaders and some setup code borrowed from Glenn G. Chappell -->
+
+-->
+
 <html>
 <head>
 <meta charset="utf-8">
@@ -16,14 +18,15 @@ A/D: Increase/decrease scene rotation</p>
 <canvas id="maincanv" style="display: block; margin: 0; padding: 0;"></canvas>
 <script type="text/javascript" src="gl-matrix-min.js"></script>
 <script type="text/javascript" src="quoll.js"></script>
-
-<!-- GLSL Shaders -->
-<script id="vshader1" type="x-shader/x-vertex">
-// Vertex Shader #1
+<script type="text/javascript" src="qshapes.js"></script>
+<script id="vertex_shader" type="x-shader/x-vertex">
+//Default Vertex Shader
+precision highp float;
 
 uniform mat4 projectionMatrix;
 uniform mat4 modelViewMatrix;
 uniform mat3 normalMatrix;
+uniform mat4 shadowmapMatrix;
 
 attribute vec4 vertex_attr;
 attribute vec4 color_attr;
@@ -32,6 +35,7 @@ attribute vec3 normal_attr;
 varying vec4 paintcolor_var;
 varying vec3 surfpt_var;
 varying vec3 surfnorm_var;
+varying vec4 vertex_rel_to_light;
 
 void main()
 {
@@ -39,6 +43,7 @@ void main()
     vec4 surfpt4 = modelViewMatrix * vertex_attr;
     surfpt_var = surfpt4.xyz / surfpt4.w;
     gl_Position = projectionMatrix * surfpt4;
+    vertex_rel_to_light = shadowmapMatrix * vertex_attr;
 
     // Compute normal
     surfnorm_var = normalize(normalMatrix * normal_attr);
@@ -47,16 +52,28 @@ void main()
     paintcolor_var = color_attr;
 }
 </script>
-<script id="fshader1" type="x-shader/x-fragment">
-// Fragment Shader #1
+<script id="fragment_shader" type="x-shader/x-fragment">
+// Default Fragment Shader
+precision highp float;
 
-#ifdef GL_ES
-precision mediump float;
-#endif
+uniform vec4 lightpos_unif;
+uniform sampler2D smap_sampler;
 
 varying vec4 paintcolor_var;
 varying vec3 surfpt_var;
 varying vec3 surfnorm_var;
+varying vec4 vertex_rel_to_light;
+
+// inShadow
+// Determine if this fragment is in shadow
+bool inShadow() {
+    // Take out of homogeneous form
+    vec3 vertex_rel_to_light3 = vertex_rel_to_light.xyz / vertex_rel_to_light.w;
+    // Normalize to [0, 1]
+    vertex_rel_to_light3 = vertex_rel_to_light3 * 0.5 + 0.5;
+    vec4 smap_color = texture2D(smap_sampler, vertex_rel_to_light3.xy);
+    return vertex_rel_to_light3.z > smap_color.r;
+}
 
 // bpLight
 // Compute color based on Blinn-Phong Illumination Model.
@@ -72,8 +89,7 @@ vec4 bpLight(
     float ambientfrac = 0.2;
         // Ambient light color, as fraction of light color
     float shininess = 200.;
-        // PHONG Model shininess exponent
-        // (Blinn-Phong needs 4 times larger)
+        // Blinn-Phong Model shininess exponent
 
     // ***** Direction of Light Source (cam coords) *****
     vec3 lightdir;
@@ -86,6 +102,7 @@ vec4 bpLight(
 
     // Ambient
     vec4 ambientcolor = ambientfrac * lightcolor * paintcolor;
+    //if (inShadow()) return clamp(ambientcolor, 0., 1.);
 
     // Diffuse
     // Lambert cosine (or 0 if this is negative)
@@ -101,23 +118,22 @@ vec4 bpLight(
     vec4 specularcolor = specularcoeff * lightcolor;
 
     // ***** Combine the Three Parts *****
-
-    return clamp(ambientcolor + diffusecolor + specularcolor,
-                 0., 1.);
+    if (inShadow()) return clamp(ambientcolor + diffusecolor + specularcolor, 0., 1.).gbra;
+    return clamp(ambientcolor + diffusecolor + specularcolor, 0., 1.);
 }
+
 void main()
 {
     // Surface normal
     vec3 surfnorm = normalize(surfnorm_var);
 
-    // Light-source color & position/direction
+    // Light-source color
     vec4 lightcolor = vec4(1., 1., 1., 1.);  // White
-    vec4 lightpos4 =  vec4(0., 0., 0., 1.);
 
     // Apply Blinn-Phong Illumination Model
     vec4 litcolor = bpLight(
         lightcolor,
-        lightpos4,
+        lightpos_unif,
         paintcolor_var,
         surfpt_var,
         surfnorm);
@@ -126,306 +142,29 @@ void main()
     gl_FragColor = vec4(litcolor.rgb, 1.0);
 }
 </script>
-<!-- END GLSL Shaders -->
+<script id="shadowmap_vertex_shader" type="x-shader/x-vertex">
+// Shadowmap Vertex Shader
+precision highp float;
 
-<!-- JavaScript Application -->
-<script type="text/javascript">
-// Globals
+uniform mat4 projectionMatrix;
+uniform mat4 modelViewMatrix;
 
-// WebGL General
-var gl;                 // WebGL rendering context
+attribute vec4 vertex_attr;
 
-// Shaders
-var shaderprog1;        // Shader program object
-
-// object
-var scene_rotate_ang;
-var scene_rotate_spd;
-var view_ang;
-
-// main function
-// Sets up GL, shaders, callbacks, and handlers
-function main(canvasid) {
-    // Initialize quoll.js & WebGL
-    gl = quollInit(canvasid);
-    if (!gl) return;  // Could not intialize; exit
-
-    // Shaders
-    shaderprog1 = makeProgramObjectFromIds(gl, 'vshader1', 'fshader1');
-
-    // Register callbacks with quoll.js
-    registerDisplay(display);
-    registerReshape(reshape);
-    registerIdle(idle);
-    canvasFullWindow(true);
-
-    // Set up other event handlers
-    document.addEventListener('keypress', keyboard, false);
-
-    // object init
-    scene_rotate_ang = 0.;
-    scene_rotate_spd = 0.;
-    view_ang = 25.;
-
-    // GL States
-    gl.enable(gl.DEPTH_TEST);
-}
-
-// drawCircle
-// draws a circle with given number of slices
-function drawCircle(ctx, subdivs, r, g, b, a) {
-    pushMvMatrix(ctx);
-    primBegin(ctx, ctx.TRIANGLE_FAN);
-    primColor(ctx, r, g, b, a);
-    primNormal(ctx, 0., 0., -1.);
-    primVertex(ctx, 0., 0.);
-    for (var ii = 0; ii <= subdivs; ++ii) {
-        primVertex(ctx,
-            Math.sin(2.*Math.PI*ii/subdivs),
-            Math.cos(2.*Math.PI*ii/subdivs));
-    }
-    primEnd(ctx);
-    popMvMatrix(ctx);
-}
-
-// drawCone
-// draws an open cone
-function drawCone(ctx, subdivs, r, g, b, a) {
-	pushMvMatrix(ctx);
-    mat4.rotate(ctx.mvMatrix, ctx.mvMatrix, Math.PI/2., [0., 0., 1.]);
-	var stepSize = 2.*Math.PI/subdivs;
-	for(var ii = 0; ii < subdivs; ++ii) {
-        primBegin(ctx, gl.TRIANGLES);
-        primColor(ctx, r, g, b, a);
-        var point1 = vec3.fromValues(1., 0., 0.);
-        var point2 = vec3.fromValues(0.,
-            Math.sin(ii*2.*Math.PI/subdivs),
-            Math.cos(ii*2.*Math.PI/subdivs));
-        var point3 = vec3.fromValues(0.,
-            Math.sin((ii+1)*2.*Math.PI/subdivs),
-            Math.cos((ii+1)*2.*Math.PI/subdivs));
-        // calculate facet normal
-        var side1 = vec3.create();
-        vec3.subtract(side1, point1, point2);
-        var side2 = vec3.create();
-        vec3.subtract(side2, point1, point3);
-        var normal = vec3.create();
-        vec3.cross(normal, side2, side1);
-        vec3.normalize(normal, normal);
-        primNormal(gl, normal[0], normal[1], normal[2]);
-        primVertex(gl, point1[0], point1[1], point1[2]);
-        primVertex(gl, point2[0], point2[1], point2[2]);
-        primVertex(gl, point3[0], point3[1], point3[2]);
-        primEnd(gl);
-	}
-	primEnd(ctx);
-	popMvMatrix(ctx);
-}
-
-// drawClosedCylinder
-// draws a cylinder with closed ends
-function drawClosedCylinder(ctx, subdivs, r, g, b, a) {
-    pushMvMatrix(ctx);
-    mat4.rotate(ctx.mvMatrix, ctx.mvMatrix, Math.PI/2., [0., 0., 1.]);
-    // draw the open cylinder
-    drawCylinder(ctx, subdivs, r, g, b, a);
-    
-    // draw the top circle
-    pushMvMatrix(ctx);
-    mat4.rotate(ctx.mvMatrix, ctx.mvMatrix, -Math.PI/2., [0., 1., 0.]);
-    mat4.translate(ctx.mvMatrix, ctx.mvMatrix, [0., 0., -1.]);
-    drawCircle(ctx, 4*subdivs, r, g, b, a);
-    popMvMatrix(ctx);
-    
-    // draw the bottom circle
-    pushMvMatrix(ctx);
-    mat4.rotate(ctx.mvMatrix, ctx.mvMatrix, Math.PI/2., [0., 1., 0.]);
-    mat4.translate(ctx.mvMatrix, ctx.mvMatrix, [0., 0., -1.]);
-    drawCircle(ctx, 4*subdivs, r, g, b, a);
-    popMvMatrix(ctx);
-    popMvMatrix(ctx);
-}
-
-// drawRing
-// draws an annulus, with radii 1 and given
-function drawRing(ctx, subdivs, rad, r, g, b, a) {
-    pushMvMatrix(ctx);
-    mat4.rotate(ctx.mvMatrix, ctx.mvMatrix, Math.PI/2., [1., 0., 0.]);
-    primBegin(ctx, ctx.TRIANGLE_STRIP);
-    primColor(ctx, r, g, b, a);
-    primNormal(ctx, 0., 0., -1.);
-    for (var ii = 0; ii <= 4*subdivs; ++ii) {
-        primVertex(ctx,
-            Math.sin(0.5*Math.PI*ii/subdivs),
-            Math.cos(0.5*Math.PI*ii/subdivs));
-        primVertex(ctx,
-            Math.sin(0.5*Math.PI*ii/subdivs)*rad,
-            Math.cos(0.5*Math.PI*ii/subdivs)*rad);
-    }
-    primEnd(ctx);
-    popMvMatrix(ctx);
-}
-
-// drawPipe
-// draws a closed annular prism, with radii 1 and given
-function drawPipe(ctx, subdivs, rad, r, g, b, a) {
-    pushMvMatrix(ctx);
-    mat4.rotate(ctx.mvMatrix, ctx.mvMatrix, Math.PI/2., [0., 0., 1.]);
-    drawCylinder(ctx, subdivs, r, g, b, a);
-    popMvMatrix(ctx);
-    
-    pushMvMatrix(ctx);
-    mat4.rotate(ctx.mvMatrix, ctx.mvMatrix, Math.PI/2., [0., 0., 1.]);
-    mat4.scale(ctx.mvMatrix, ctx.mvMatrix, [1., rad, rad]);
-    drawCylinder(ctx, subdivs, r, g, b, a);
-    popMvMatrix(ctx);
-    
-    pushMvMatrix(ctx);
-    mat4.translate(gl.mvMatrix, gl.mvMatrix, [0., 1., 0.]);
-    drawRing(ctx, subdivs, rad, r, g, b, a);
-    popMvMatrix(ctx);
-    
-    pushMvMatrix(ctx);
-    mat4.rotate(ctx.mvMatrix, ctx.mvMatrix, Math.PI, [-1., 0., 0.]);
-    mat4.translate(gl.mvMatrix, gl.mvMatrix, [0., 1., 0.]);
-    drawRing(ctx, subdivs, rad, r, g, b, a);
-    popMvMatrix(ctx);
-}
-
-// drawGround function
-// draws the ground and road
-function drawGround() {
-    // draws the grass field
-    pushMvMatrix(gl);
-    mat4.scale(gl.mvMatrix, gl.mvMatrix, [8., 1., 8.]);
-    mat4.rotate(gl.mvMatrix, gl.mvMatrix, Math.PI/2., [1., 0., 0.]);
-    drawCircle(gl, 80, 0., 0.5, 0., 1.0);
-    popMvMatrix(gl);
-    
-    // draws the roadway
-    pushMvMatrix(gl);
-    mat4.translate(gl.mvMatrix, gl.mvMatrix, [0., 0.001, 0.]);
-    mat4.scale(gl.mvMatrix, gl.mvMatrix, [6., 1., 6.]);
-    drawRing(gl, 40, 0.5, 0.1, 0.1, 0.1, 1.0);
-    popMvMatrix(gl);
-    
-    // draws the outer road line
-    pushMvMatrix(gl);
-    mat4.translate(gl.mvMatrix, gl.mvMatrix, [0., 0.002, 0.]);
-    mat4.scale(gl.mvMatrix, gl.mvMatrix, [5.8, 1., 5.8]);
-    drawRing(gl, 40, 0.98, 0.8, 0.8, 0.8, 1.0);
-    popMvMatrix(gl);
-    
-    // draws the inner road line
-    pushMvMatrix(gl);
-    mat4.translate(gl.mvMatrix, gl.mvMatrix, [0., 0.002, 0.]);
-    mat4.scale(gl.mvMatrix, gl.mvMatrix, [3.2, 1., 3.2]);
-    drawRing(gl, 40, 0.98, 0.8, 0.8, 0., 1.0);
-    popMvMatrix(gl);
-}
-
-// drawFountain function
-// draws the fountain in the center of the roundabout
-function drawFountain() {
-    pushMvMatrix(gl);
-    mat4.scale(gl.mvMatrix, gl.mvMatrix, [0.8, 0.1, 0.8]);
-    mat4.translate(gl.mvMatrix, gl.mvMatrix, [0., 1., 0.]);
-    drawClosedCylinder(gl, 40, 0.8, 0.8, 0.8, 1.0);
-    mat4.scale(gl.mvMatrix, gl.mvMatrix, [1.2, 1., 1.2]);
-    mat4.translate(gl.mvMatrix, gl.mvMatrix, [0., 2., 0.]);
-    drawPipe(gl, 40, 0.6, 0.8, 0.8, 0.8, 1.0);
-    mat4.rotate(gl.mvMatrix, gl.mvMatrix, Math.PI/2., [1., 0., 0.]);
-    mat4.scale(gl.mvMatrix, gl.mvMatrix, [0.7, 0.7, 1.0]);
-    drawCircle(gl, 40, 0.4, 0.4, 1.0, 1.0);
-    popMvMatrix(gl);
-}
-
-// drawScene function
-// draws everything
-function drawScene() {
-    pushMvMatrix(gl);
-    //drawGround();
-    //drawFountain();
-    //drawPipe(gl, 1, 1.5, 0.8, 0.8, 0.8, 1.0);
-    drawCone(gl, 100, 0.8, 0.8, 0.8, 1.0);
-    popMvMatrix(gl);
-}
-
-// display function
-// shows the objects on the screen
-function display() {
-    gl.useProgram(shaderprog1);
-
-    gl.clearColor(0.2, 0.2, 0.2, 1.0);
-    gl.clear(gl.COLOR_BUFFER_BIT);
-
-    // Camera transformation
-    mat4.identity(gl.mvMatrix);
-    mat4.translate(gl.mvMatrix, gl.mvMatrix, [0., 0., -8.]);
-    mat4.rotate(gl.mvMatrix, gl.mvMatrix, view_ang * Math.PI/180., [1., 0., 0.]);
-    mat4.rotate(gl.mvMatrix, gl.mvMatrix, scene_rotate_ang * Math.PI/180., [0., -1., 0.]);
-
-    // draw all the things
-    drawScene();
-    gl.flush();
-}
-
-// reshape function
-// manages viewport and projection
-function reshape(w, h) {
-    // Set up viewport
-    gl.viewport(0, 0, w, h);
-
-    // Set up projection
-    mat4.perspective(gl.pMatrix,
-                     Math.PI/180. * 60.,  // y field-of-view angle
-                     w/h,                 // Viewport aspect ratio
-                     0.1, 20.);           // Near & far distances
-}
-
-// idle function
-// manages idle animation of the scene
-function idle() {
-    var elapsed_time = getElapsedTime(0.1);
-    scene_rotate_ang += scene_rotate_spd * elapsed_time;
-    postRedisplay();
-}
-
-// keyboard function
-// takes input from the keyboard
-function keyboard(event) {
-    var key = keyFromEvent(event);
-
-    switch (key) {
-    // move camera up and down
-    case 'W':
-    case 'w':
-        //if (view_ang > 1)
-            view_ang -= 1;
-        postRedisplay();
-        break;
-    case 'S':
-    case 's':
-        //if (view_ang < 90)
-            view_ang += 1;
-        postRedisplay();
-        break;
-
-    // adjust left-right spin speed
-    case 'D':
-    case 'd':
-        if (scene_rotate_spd > -200) scene_rotate_spd -= 5;
-        postRedisplay();
-        break;
-    case 'A':
-    case 'a':
-        if (scene_rotate_spd < 200) scene_rotate_spd += 5;
-        postRedisplay();
-        break;
-    default:
-        break;
-    }
+void main() {
+    gl_Position = projectionMatrix * modelViewMatrix * vertex_attr;
 }
 </script>
+<script id="shadowmap_fragment_shader" type="x-shader/x-fragment">
+// Shadowmap Fragment Shader
+precision highp float;
+
+void main() {
+    float z = gl_FragCoord.z;
+    gl_FragColor = vec4(z, z, z, 1.);
+}
+</script>
+<script type="text/javascript" src="shadows.js"></script>
+
 </body>
 </html>
